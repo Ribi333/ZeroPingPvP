@@ -1,0 +1,10 @@
+{
+    "name": "ZeroPingPvP",
+    "creator": "Ribi333",
+    "version": "0.0.1",
+    "entry": "index.js",
+    "requires": [
+        "BloomCore",
+        "PogData"
+    ]
+}
