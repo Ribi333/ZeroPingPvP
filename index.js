@@ -72,6 +72,7 @@ register("packetSent", (packet) => {
         } catch (e) {
             if (dataObject.debugMode) {
                 ChatLib.chat(`&c[&3ZPPVP&b] » Error: ${e.message}`);
+                ChatLib.chat('&cFailed to simulate hit on target');
             }
         }
     }
