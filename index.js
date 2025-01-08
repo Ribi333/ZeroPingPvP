@@ -65,8 +65,6 @@ register("packetSent", (packet) => {
                     ChatLib.chat("&b[&3ZPPVP&b] » Attack detected!");
                 }
                 
-                Player.getPlayer().field_70737_aN = 3;
-                
                 if (dataObject.debug2Mode) {
                     ChatLib.chat("&b[&3ZPPVP&b] » Applied early hit effect");
                 }
