@@ -1,17 +1,15 @@
 import PogObject from "PogData";
 
-// Import necessary Java classes
 const C02PacketUseEntity = Java.type("net.minecraft.network.play.client.C02PacketUseEntity");
 const EntityAction = C02PacketUseEntity.Action;
 
-// Initialize data storage
+
 const dataObject = new PogObject("ZeroPingPvP", {
     enabled: false,
     debugMode: false,
     debug2Mode: false,
 }, "zppvpData.json");
 
-// Register the command and its subcommands
 register("command", (arg) => {
     if (!arg) {
         ChatLib.chat("&b[&3ZPPVP&b] Commands:");
@@ -40,7 +38,6 @@ register("command", (arg) => {
     dataObject.save();
 }).setName("zppvp");
 
-// Function to check if target is valid
 const isValidTarget = (target) => {
     if (!target) return false;
     if (!target.getEntity) return false;
@@ -48,7 +45,6 @@ const isValidTarget = (target) => {
     return true;
 };
 
-// Function to simulate a hit with proper checks
 const simulateHit = (target) => {
     if (!isValidTarget(target)) return;
     
@@ -75,7 +71,6 @@ const simulateHit = (target) => {
     }
 };
 
-// Register packet listener for attack packets
 register("packetSent", (packet) => {
     if (!dataObject.enabled) return;
 
@@ -87,7 +82,6 @@ register("packetSent", (packet) => {
         let target;
         
         try {
-            // Try to get the target entity
             target = packet.getEntityFromWorld(World.getWorld());
             
             if (!target) {
@@ -97,7 +91,6 @@ register("packetSent", (packet) => {
                 return;
             }
 
-            // Try to get the action type
             let action;
             try {
                 action = packet.getAction();
@@ -110,7 +103,6 @@ register("packetSent", (packet) => {
                     ChatLib.chat(`&b[&3ZPPVP&b] » Attack packet detected!`);
                 }
                 
-                // Add a small delay to prevent anti-cheat issues
                 Client.schedule(1, () => {
                     simulateHit(target);
                 });
@@ -123,7 +115,6 @@ register("packetSent", (packet) => {
     }
 });
 
-// Optional: Register a world load listener to ensure data is saved
 register("worldLoad", () => {
     dataObject.save();
 });
