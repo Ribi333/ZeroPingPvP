@@ -90,7 +90,3 @@ register("packetReceived", (packet, event) => {
         }
     }
 });
-
-register("worldLoad", () => {
-    dataObject.save();
-});
