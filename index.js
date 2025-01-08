@@ -3,7 +3,6 @@ import PogObject from "PogData";
 const C02PacketUseEntity = Java.type("net.minecraft.network.play.client.C02PacketUseEntity");
 const EntityAction = C02PacketUseEntity.Action;
 
-
 const dataObject = new PogObject("ZeroPingPvP", {
     enabled: false,
     debugMode: false,
@@ -38,79 +37,58 @@ register("command", (arg) => {
     dataObject.save();
 }).setName("zppvp");
 
-const isValidTarget = (target) => {
-    if (!target) return false;
-    if (!target.getEntity) return false;
-    if (target.getEntity() === Player.getPlayer()) return false;
-    return true;
-};
-
-const simulateHit = (target) => {
-    if (!isValidTarget(target)) return;
-    
-    try {
-        // Get player's attack reach (usually 3-4 blocks)
-        const reach = Player.getReachDistance() || 3;
-        
-        // Check if target is within reach
-        if (target.distanceTo(Player) <= reach) {
-            // Perform the attack sequence
-            Player.getPlayer().swingItem();
-            Client.sendPacket(new C02PacketUseEntity(target.getEntity(), EntityAction.ATTACK));
-            
-            if (dataObject.debug2Mode) {
-                ChatLib.chat(`&b[&3ZPPVP&b] » Hit simulated! Distance: ${target.distanceTo(Player).toFixed(2)}`);
-            }
-        } else if (dataObject.debug2Mode) {
-            ChatLib.chat(`&b[&3ZPPVP&b] » Target out of reach: ${target.distanceTo(Player).toFixed(2)} blocks`);
-        }
-    } catch (e) {
-        if (dataObject.debugMode) {
-            ChatLib.chat(`&c[Error] Failed to simulate hit: ${e.message}`);
-        }
-    }
-};
-
 register("packetSent", (packet) => {
     if (!dataObject.enabled) return;
 
     if (dataObject.debugMode) {
-        ChatLib.chat(`&b[&3DEBUG&b] Packet: ${packet.getClass().getName()}`);
+        ChatLib.chat(`&b[&3ZPPVP&b] » Sent packet: ${packet.getClass().getSimpleName()}`);
     }
 
     if (packet instanceof C02PacketUseEntity) {
-        let target;
-        
         try {
-            target = packet.getEntityFromWorld(World.getWorld());
-            
-            if (!target) {
-                if (dataObject.debugMode) {
-                    ChatLib.chat("&c[Debug] No target entity found");
-                }
-                return;
-            }
-
             let action;
             try {
-                action = packet.getAction();
-            } catch (e) {
                 action = packet.func_149565_c();
+            } catch (e) {
+                try {
+                    action = packet.getAction();
+                } catch (e2) {
+                    if (dataObject.debugMode) {
+                        ChatLib.chat("&c[&3ZPPVP&b] » Could not get action type");
+                    }
+                    return;
+                }
             }
 
             if (action === EntityAction.ATTACK) {
                 if (dataObject.debug2Mode) {
-                    ChatLib.chat(`&b[&3ZPPVP&b] » Attack packet detected!`);
+                    ChatLib.chat("&b[&3ZPPVP&b] » Attack detected!");
                 }
                 
-                Client.schedule(1, () => {
-                    simulateHit(target);
-                });
+                Player.getPlayer().field_70737_aN = 3;
+                
+                if (dataObject.debug2Mode) {
+                    ChatLib.chat("&b[&3ZPPVP&b] » Applied early hit effect");
+                }
             }
         } catch (e) {
             if (dataObject.debugMode) {
-                ChatLib.chat(`&c[Error] Packet handling failed: ${e.message}`);
+                ChatLib.chat(`&c[&3ZPPVP&b] » Error: ${e.message}`);
             }
+        }
+    }
+});
+
+register("packetReceived", (packet, event) => {
+    if (!dataObject.enabled) return;
+
+    if (packet instanceof Java.type("net.minecraft.network.play.server.S19PacketEntityStatus")) {
+        const status = packet.func_149160_c();
+        if (status === 2) {
+            if (dataObject.debug2Mode) {
+                ChatLib.chat("&b[&3ZPPVP&b] » Hit confirmed by server!");
+            }
+            cancel(event);
         }
     }
 });
