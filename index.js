@@ -82,7 +82,7 @@ register("packetSent", (packet) => {
     if (!dataObject.enabled) return;
 
     if (dataObject.debug2Mode) {
-        ChatLib.chat(`&b[&3ZPPVP&b] » Sent packet: ${packet.getClass().getSimpleName()}`); // now tells you all the packets
+        ChatLib.chat(`&b[&3ZPPVP&b] » Sent packet: ${packet.getClass().getSimpleName()}`); // now doesnt tell you all the packets you send
     }
 
     if (packet instanceof C02PacketUseEntity) {
