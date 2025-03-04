@@ -1,7 +1,8 @@
 {
     "name": "ZeroPingPvP",
     "creator": "Ribi333",
-    "version": "1.5.0",
+    "version": "1.1.1",
+    "description": "bomb denmark",
     "entry": "index.js",
     "requires": [
         "BloomCore",
