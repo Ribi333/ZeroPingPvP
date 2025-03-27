@@ -10,6 +10,10 @@ const dataObject = new PogObject("ZeroPingPvP", {
     debug2Mode: false,
 }, "zppvpData.json");
 
+const MAX_ATTACK_DISTANCE = 3.00;
+const ATTACK_COOLDOWN = 0;
+let lastAttackTime = 0;
+
 register("command", (arg) => {
     if (!arg) {
         ChatLib.chat("&b[&3ZPPVP&b] Commands:");
@@ -50,28 +54,46 @@ const isValidTarget = (entity, playerName) => {
     return true;
 };
 
-const findClosestTarget = (maxDistance = 4) => { // made function to identify the target
+const findClosestTarget = (maxDistance = 4) => {
     const player = Player.getPlayer();
     const playerName = Player.getName();
     
-    return World.getAllEntitiesOfType(Java.type("net.minecraft.entity.player.EntityPlayer")) // 
+    return World.getAllEntitiesOfType(Java.type("net.minecraft.entity.player.EntityPlayer"))
         .filter(entity => entity.getName() !== playerName)
         .sort((a, b) => a.distanceTo(player) - b.distanceTo(player))
         .find(entity => entity.distanceTo(player) <= maxDistance);
 };
 
+const canAttack = (target) => {
+    if (!target) return false;
+    
+    const currentTime = Date.now();
+    const distance = Player.getPlayer().distanceTo(target);
+    const cooldownElapsed = currentTime - lastAttackTime >= ATTACK_COOLDOWN;
+    
+    if (dataObject.debug2Mode) {
+        ChatLib.chat(`&b[&3ZPPVP&b] » Distance to target: ${distance}`);
+        ChatLib.chat(`&b[&3ZPPVP&b] » Time since last attack: ${currentTime - lastAttackTime}ms`);
+    }
+    
+    return distance <= MAX_ATTACK_DISTANCE && cooldownElapsed;
+};
+
 const simulateHit = (target, playerName) => {
     if (!isValidTarget(target, playerName)) return;
+    if (!canAttack(target)) return;
 
     if (dataObject.debug2Mode) {
         ChatLib.chat(`&b[&3ZPPVP&b] » Simulating hit on: ${target.getName()}`);
     }
 
-    Client.sendPacket(new C0APacketAnimation()); // sends the animation packet
+    Client.sendPacket(new C0APacketAnimation());
+
+    Client.sendPacket(new C02PacketUseEntity(target.getEntity(), EntityAction.ATTACK));
+
+    Player.getPlayer().field_70737_aN = 3;
     
-    Client.sendPacket(new C02PacketUseEntity(target.getEntity(), EntityAction.ATTACK)); // sends the attack packet
-    
-    Player.getPlayer().field_70737_aN = 3; // player hit color client-sided
+    lastAttackTime = Date.now();
     
     if (dataObject.debug2Mode) {
         ChatLib.chat("&b[&3ZPPVP&b] » Hit simulated!");
@@ -81,22 +103,15 @@ const simulateHit = (target, playerName) => {
 register("packetSent", (packet) => {
     if (!dataObject.enabled) return;
 
-    if (dataObject.debug2Mode) {
-        ChatLib.chat(`&b[&3ZPPVP&b] » Sent packet: ${packet.getClass().getSimpleName()}`); // now doesnt tell you all the packets you send
-    }
-
     if (packet instanceof C02PacketUseEntity) {
         if (dataObject.debug2Mode) {
-            ChatLib.chat("&b[&3ZPPVP&b] » C02PacketUseEntity detected!"); // added this for debugging
+            ChatLib.chat("&b[&3ZPPVP&b] » C02PacketUseEntity detected!");
         }
 
         try {
             let action;
             try {
                 action = packet.func_149565_c();
-                if (dataObject.debug2Mode) {
-                    ChatLib.chat(`&b[&3ZPPVP&b] » Action type: ${action}`);
-                }
             } catch (e) {
                 if (dataObject.debug2Mode) {
                     ChatLib.chat("&c[&3ZPPVP&b] » Could not get action type");
@@ -105,17 +120,10 @@ register("packetSent", (packet) => {
             }
 
             if (action === EntityAction.ATTACK) {
-                if (dataObject.debug2Mode) {
-                    ChatLib.chat("&b[&3ZPPVP&b] » Attack action confirmed!");
-                }
-
                 const playerName = Player.getName();
                 const target = findClosestTarget();
 
                 if (target) {
-                    if (dataObject.debug2Mode) {
-                        ChatLib.chat(`&b[&3ZPPVP&b] » Found target: ${target.getName()}`);
-                    }
                     simulateHit(target, playerName);
                 } else if (dataObject.debug2Mode) {
                     ChatLib.chat("&c[&3ZPPVP&b] » Could not find target entity");
@@ -129,7 +137,7 @@ register("packetSent", (packet) => {
     }
 });
 
-register("packetReceived", (packet, event) => {
+register("packetReceived", (packet) => {
     if (!dataObject.enabled) return;
 
     if (packet instanceof Java.type("net.minecraft.network.play.server.S19PacketEntityStatus")) {
