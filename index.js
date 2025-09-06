@@ -1,33 +1,30 @@
 import PogObject from "PogData";
 
-// Import necessary Java classes
 const C02PacketUseEntity = Java.type("net.minecraft.network.play.client.C02PacketUseEntity");
 const C0APacketAnimation = Java.type("net.minecraft.network.play.client.C0APacketAnimation");
 const EntityAction = C02PacketUseEntity.Action;
 const S19PacketEntityStatus = Java.type("net.minecraft.network.play.server.S19PacketEntityStatus");
 const S0BPacketAnimation = Java.type("net.minecraft.network.play.server.S0BPacketAnimation");
 
-// Initialize data storage
 const dataObject = new PogObject("ZeroPingPvP", {
     enabled: false,
     debugMode: false,
     debug2Mode: false,
-    highPingMode: true,     // Queue mode for high-ping environments
-    attackTimeout: 250,     // Default timeout: 250ms
-    firstAttackDelay: 175,  // Default first attack delay: 175ms
-    renderEffects: true,    // Show hit effects client-side
-    disableInGUI: true,     // Disable module when in GUI
+    highPingMode: true,
+    attackTimeout: 250,
+    firstAttackDelay: 175,
+    renderEffects: true,
+    disableInGUI: true,
 }, "zppvpData.json");
 
-// State tracking
+// state tracking
 let lastTargetId = -1;
-let pendingAttacks = new Set();  // Track entity IDs we've attacked
-let attackQueue = [];           // Queue for high-ping mode
-let attacking = false;          // Track if we're in an attack sequence
-let targetAcquiredAt = 0;       // When we first identified a target
-let inGUI = false;              // Track if in GUI
+let pendingAttacks = new Set();
+let attackQueue = [];
+let attacking = false;
+let targetAcquiredAt = 0;
+let inGUI = false;
 
-// Register the command and its subcommands
 register("command", (arg1, arg2) => {
     if (!arg1) {
         ChatLib.chat("&b[&3ZPPVP&b] Commands:");
@@ -96,9 +93,8 @@ register("command", (arg1, arg2) => {
             ChatLib.chat(`&b[&3ZPPVP&b] First attack delay set to &e${delay}ms`);
             break;
         case "recommend":
-            // Lower values for better performance
-            dataObject.attackTimeout = 150;
-            dataObject.firstAttackDelay = 0;
+            dataObject.attackTimeout = 40;
+            dataObject.firstAttackDelay = 175;
             dataObject.highPingMode = true;
             dataObject.renderEffects = true;
             dataObject.disableInGUI = true;
@@ -126,7 +122,6 @@ register("command", (arg1, arg2) => {
     dataObject.save();
 }).setName("zppvp");
 
-// Track GUI open/close
 register("guiOpened", (gui) => {
     inGUI = true;
     if (dataObject.debug2Mode) {
@@ -141,15 +136,12 @@ register("guiClosed", (gui) => {
     }
 });
 
-// Find the closest entity in the player's line of sight
 function findTargetEntity() {
     try {
-        // Get all player entities
         const entities = World.getAllEntitiesOfType(Java.type("net.minecraft.entity.player.EntityPlayer"));
         const player = Player.getPlayer();
         const playerName = Player.getName();
         
-        // Filter out self and sort by distance
         const targets = entities.filter(entity => entity.getName() !== playerName)
             .filter(entity => entity.distanceTo(player) <= 4)
             .sort((a, b) => a.distanceTo(player) - b.distanceTo(player));
@@ -170,23 +162,17 @@ function findTargetEntity() {
     }
 }
 
-// Process clicks to send attack packets
 register("clicked", (mouseX, mouseY, button, isPressed, event) => {
     if (!dataObject.enabled) return;
     
-    // Check if in GUI and module should be disabled
     if (dataObject.disableInGUI && inGUI) return;
     
-    // Only process left clicks when pressed
     if (button !== 0 || !isPressed) return;
     
-    // Find the closest valid target
     const target = findTargetEntity();
     
-    // If no target found, allow normal clicking
     if (!target) return;
     
-    // At this point we know we're in combat - CANCEL VANILLA CLICK
     cancel(event);
     
     if (dataObject.debug2Mode) {
@@ -194,10 +180,8 @@ register("clicked", (mouseX, mouseY, button, isPressed, event) => {
     }
 
     try {
-        // Get the target's name for tracking
         const entityId = target.getName();
-        
-        // Check if this is a new target
+
         if (lastTargetId !== entityId) {
             lastTargetId = entityId;
             targetAcquiredAt = Date.now();
@@ -207,7 +191,6 @@ register("clicked", (mouseX, mouseY, button, isPressed, event) => {
             }
         }
         
-        // Check for first attack delay - don't send anything during this delay
         if (targetAcquiredAt + dataObject.firstAttackDelay > Date.now()) {
             if (dataObject.debug2Mode) {
                 ChatLib.chat(`&b[&3ZPPVP&b] » First attack delay, waiting...`);
@@ -219,11 +202,8 @@ register("clicked", (mouseX, mouseY, button, isPressed, event) => {
             ChatLib.chat(`&b[&3ZPPVP&b] » Target found: ${entityId}`);
         }
         
-        // Handle high-ping mode
         if (dataObject.highPingMode || !attacking) {
-            // Always apply predictive effects
             if (dataObject.renderEffects) {
-                // Apply hit effect client-side
                 Player.getPlayer().field_70737_aN = 3;
                 
                 if (dataObject.debug2Mode) {
@@ -231,19 +211,16 @@ register("clicked", (mouseX, mouseY, button, isPressed, event) => {
                 }
             }
             
-            // Track this entity as pending
             pendingAttacks.add(entityId);
         }
         
         if (dataObject.highPingMode && attacking) {
-            // Queue the attack for later
             attackQueue.push(entityId);
             
             if (dataObject.debug2Mode) {
                 ChatLib.chat(`&b[&3ZPPVP&b] » Queued attack on entity ${entityId}`);
             }
         } else {
-            // Process the attack immediately
             sendAttack(target);
         }
     } catch (e) {
@@ -253,29 +230,26 @@ register("clicked", (mouseX, mouseY, button, isPressed, event) => {
     }
 });
 
-// Function to send attack packets
 function sendAttack(target) {
     if (!target) return;
     
     try {
         attacking = true;
         
-        // 1. Send arm swing animation packet
+        // swing packet (arm)
         Client.sendPacket(new C0APacketAnimation());
-        
-        // 2. Send attack packet
+
+        // attack packet
         Client.sendPacket(new C02PacketUseEntity(target.getEntity(), EntityAction.ATTACK));
         
         if (dataObject.debug2Mode) {
             ChatLib.chat(`&b[&3ZPPVP&b] » Attack sent to ${target.getName()}`);
         }
         
-        // Set timeout to reset attack state
         const initialTargetId = lastTargetId;
         setTimeout(() => {
             if (lastTargetId !== initialTargetId) return;
             
-            // Reset state
             attacking = false;
             attackQueue = [];
             
@@ -291,14 +265,11 @@ function sendAttack(target) {
     }
 }
 
-// Process attack queue
 function processQueue() {
     if (attackQueue.length === 0) return;
     
-    // Get the next entity ID
     const nextEntityId = attackQueue.shift();
     
-    // Find the entity
     const entities = World.getAllEntities();
     const target = entities.find(entity => entity.getName && entity.getName() === nextEntityId);
     
@@ -309,24 +280,19 @@ function processQueue() {
     }
 }
 
-// Cancel server hit animations for entities we've already hit
 register("packetReceived", (packet, event) => {
     if (!dataObject.enabled) return;
     
-    // Check if in GUI and module should be disabled
     if (dataObject.disableInGUI && inGUI) return;
 
     if (dataObject.debugMode) {
         ChatLib.chat(`&b[&3DEBUG&b] Received packet: ${packet.getClass().getSimpleName()}`);
     }
 
-    // Cancel entity damage animations (hit effects) from server - SIMPLIFIED TO AVOID ERRORS
     if (packet instanceof S19PacketEntityStatus) {
         try {
             const status = packet.func_149160_c();
-            if (status === 2) { // Hurt animation status
-                // If we have any pending attacks, cancel all hurt animations
-                // This is less precise but avoids method signature errors
+            if (status === 2) { // hurt animation status
                 if (pendingAttacks.size > 0) {
                     if (dataObject.debug2Mode) {
                         ChatLib.chat(`&b[&3ZPPVP&b] » Cancelled server hit animation (simplified)`);
@@ -336,29 +302,24 @@ register("packetReceived", (packet, event) => {
                         cancel(event);
                     }
                     
-                    // Process next queued attack if in high-ping mode
                     if (dataObject.highPingMode) {
                         processQueue();
                     }
                 }
             }
         } catch (e) {
-            // Silently ignore damage animation errors since they're not critical
             if (dataObject.debug2Mode) {
                 ChatLib.chat(`&c[&3ZPPVP&b] » Damage animation error (non-critical): ${e.message}`);
             }
         }
     }
     
-    // Cancel arm swing animations from server - IMPROVED ERROR HANDLING
     if (packet instanceof S0BPacketAnimation) {
         try {
             const animationType = packet.func_148977_d();
             
-            // Only care about arm swing animations (type 0)
+            // arm swing animations (type 0)
             if (animationType === 0) {
-                // For arm swings, we can be less specific about which entity
-                // Just cancel all arm swing animations when we're actively attacking
                 if (attacking) {
                     if (dataObject.debug2Mode) {
                         ChatLib.chat("&b[&3ZPPVP&b] » Cancelled server arm swing animation");
@@ -367,8 +328,6 @@ register("packetReceived", (packet, event) => {
                 }
             }
         } catch (e) {
-            // Silently ignore arm animation errors since they're not critical
-            // Only log if in debug mode
             if (dataObject.debug2Mode) {
                 ChatLib.chat(`&c[&3ZPPVP&b] » Arm animation error (non-critical): ${e.message}`);
             }
@@ -376,11 +335,9 @@ register("packetReceived", (packet, event) => {
     }
 });
 
-// Track sent attack packets for debugging
 register("packetSent", (packet) => {
     if (!dataObject.enabled) return;
     
-    // Check if in GUI and module should be disabled
     if (dataObject.disableInGUI && inGUI) return;
 
     if (dataObject.debugMode) {
@@ -410,7 +367,6 @@ register("packetSent", (packet) => {
     }
 });
 
-// Reset state when changing worlds
 register("worldLoad", () => {
     dataObject.save();
     pendingAttacks.clear();
@@ -420,6 +376,5 @@ register("worldLoad", () => {
     inGUI = false;
 });
 
-// Initialization message
 ChatLib.chat("&b[&3ZPPVP&b] Module loaded! Use &b/zppvp toggle&3 to enable.");
 ChatLib.chat("&b[&3ZPPVP&b] Use &b/zppvp recommend&3 for optimal settings.");
